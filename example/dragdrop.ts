@@ -12,167 +12,214 @@ SplitPanel
 } from '../lib/index';
 
 import {
-IDisposable
-} from 'phosphor-disposable';
-
-import {
-overrideCursor
-} from 'phosphor-domutil';
-
-import {
 Message
 } from 'phosphor-messaging';
 
 import {
-Widget, attachWidget, detachWidget
+Widget, attachWidget
 } from 'phosphor-widget';
 
 import './dragdrop.css';
 
-interface IPressData {
-  drag: boolean;
-  dummy?: Widget;
-  override?: IDisposable;
-  rect?: ClientRect;
-  startX: number;
-  startY: number;
+const PLOT_ID = '1edbdc7a-876c-4549-bcf2-7726b8349a2e'
+
+const WIDGET_MIME = 'application/x-phosphor-widget';
+
+interface IMimeData {
+  mime: string;
+  reference: string;
 }
+
+let { clearMimeData, getMimeData, getMimeFactory } =
+((cache: { [reference: string]: () => Widget }) => {
+  let id = 0;
+
+  let nextReference = () => 'reference-' + id++;
+
+  let clearMimeData = function (reference: string): void {
+    delete cache[reference];
+  };
+
+  let getMimeData = function (factory: () => Widget): IMimeData {
+    if (!factory) {
+      return null;
+    }
+    let reference = nextReference();
+    cache[reference] = factory;
+    return { mime: WIDGET_MIME, reference: reference };
+  };
+
+  let getMimeFactory = function (reference: string): () => Widget {
+    return cache[reference] || null;
+  };
+
+  return { clearMimeData, getMimeData, getMimeFactory };
+})({});
 
 class DraggableWidget extends Widget {
 
-  constructor(private _threshold?: number) {
+  static createNode(): HTMLElement {
+    let node = document.createElement('div');
+    let span = document.createElement('span');
+    node.className = 'list-item';
+    node.setAttribute('draggable', 'true');
+    node.appendChild(span);
+    return node;
+  }
+
+  constructor(label: string, private _factory: () => Widget) {
     super();
+    this.node.querySelector('span').appendChild(document.createTextNode(label));
   }
 
   handleEvent(event: Event): void {
     switch (event.type) {
-      case 'mousedown':
-        this._evtMouseDown(<MouseEvent>event);
+      case 'dragstart':
+        this._evtDragStart(<DragEvent>event);
         break;
-      case 'mousemove':
-        this._evtMouseMove(<MouseEvent>event);
-        break;
-      case 'mouseup':
-        this._evtMouseUp(<MouseEvent>event);
+      case 'dragend':
+        this._evtDragEnd(<DragEvent>event);
         break;
     }
   }
 
   protected onAfterAttach(msg: Message): void {
     super.onAfterAttach(msg);
-    this.node.addEventListener('mousedown', this);
+    this.node.addEventListener('dragstart', this);;
+    this.node.addEventListener('dragend', this);;
   }
 
   protected onBeforeDetach(msg: Message): void {
     super.onBeforeDetach(msg);
-    this.node.removeEventListener('mousedown', this);
+    this.node.removeEventListener('dragstart', this);
+    this.node.removeEventListener('dragend', this);
   }
 
-  private _evtMouseDown(event: MouseEvent): void {
-    console.log('called 1');
-    // Ignore right-clicks.
-    if (event.button !== 0) {
+  private _evtDragStart(event: DragEvent): void {
+    this._mimeData = getMimeData(this._factory);
+    if (this._mimeData) {
+      event.dataTransfer.setData(this._mimeData.mime, this._mimeData.reference);
+    }
+  }
+
+  private _evtDragEnd(event: DragEvent): void {
+    if (this._mimeData) {
+      clearMimeData(this._mimeData.reference);
+    }
+  }
+
+  private _mimeData: IMimeData;
+}
+
+class DroppableWidget extends Widget {
+
+  handleEvent(event: Event): void {
+    switch (event.type) {
+      case 'dragenter':
+        this._evtDragEnter(<DragEvent>event);
+        break;
+      case 'dragleave':
+        this._evtDragLeave(<DragEvent>event);
+        break;
+      case 'dragover':
+        this._evtDragOver(<DragEvent>event);
+        break;
+      case 'drop':
+        this._evtDrop(<DragEvent>event);
+        break;
+    }
+  }
+
+  protected onAfterAttach(msg: Message): void {
+    super.onAfterAttach(msg);
+    for (let event of ['dragenter', 'dragleave', 'dragover', 'drop']) {
+      this.node.addEventListener(event, this);
+    };
+  }
+
+  protected onBeforeDetach(msg: Message): void {
+    super.onBeforeDetach(msg);
+    for (let event of ['dragenter', 'dragleave', 'dragover', 'drop']) {
+      this.node.removeEventListener(event, this);
+    };
+  }
+
+  private _evtDragEnter(event: DragEvent): void {
+    let validMime = !!event.dataTransfer.getData(WIDGET_MIME);
+    event.dataTransfer.dropEffect = validMime ? 'copy' : 'none';
+    event.preventDefault();
+    event.stopPropagation();
+    this.addClass('drag-over');
+  }
+
+  private _evtDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.removeClass('drag-over');
+  }
+
+  private _evtDragOver(event: DragEvent): void {
+    if (!event.dataTransfer.getData(WIDGET_MIME)) {
+      this.removeClass('drag-over');
       return;
     }
     event.preventDefault();
     event.stopPropagation();
-    var drag = false;
-    var startX = event.clientX;
-    var startY = event.clientY;
-    this._pressData = { drag, startX, startY };
-    document.addEventListener('mouseup', this, true);
-    document.addEventListener('mousemove', this, true);
   }
 
-  private _evtMouseMove(event: MouseEvent): void {
-    if (!this._pressData.drag) {
-      var { startX, startY } = this._pressData;
-      var dX = Math.abs(startX - event.clientX);
-      var dY = Math.abs(startY - event.clientY);
-      var drag = Math.sqrt(Math.pow(dX, 2) + Math.pow(dY, 2)) > this._threshold;
-      if (!drag) {
-        return;
-      }
-      this._pressData.drag = true;
-      this._pressData.dummy = new Widget();
-      this._pressData.dummy.addClass('drag');
-      this._pressData.override = overrideCursor('move');
-      this._pressData.rect = this.node.getBoundingClientRect();
-      attachWidget(this._pressData.dummy, document.body);
-    }
-    var { rect, startX, startY } = this._pressData;
-    var { left, top, width, height } = this._pressData.rect;
-    var dX = event.clientX - startX;
-    var dY = event.clientY - startY;
-    this._pressData.dummy.setOffsetGeometry(left + dX, top + dY, width, height);
-  }
-
-  private _evtMouseUp(event: MouseEvent): void {
-    detachWidget(this._pressData.dummy);
-    this._pressData.dummy.dispose();
-    this._pressData.override.dispose();
-    this._pressData = null;
-    document.removeEventListener('mouseup', this, true);
-    document.removeEventListener('mousemove', this, true);
-  }
-
-  private _pressData: IPressData = null;
-}
-
-class DroppableWidget extends Widget {
-  processMessage(msg: Message): void {
-    switch (msg.type) {
-      case 'drag-drop':
-        this.onDragDrop();
-        break;
-      case 'drag-move':
-        this.onDragMove();
-        break;
-      default:
-        super.processMessage(msg);
+  private _evtDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.removeClass('drag-over');
+    let reference = event.dataTransfer.getData(WIDGET_MIME);
+    let factory = getMimeFactory(reference);
+    if (factory) {
+      this.removeChildAt(0);
+      this.addChild(factory());
     }
   }
-  onDragDrop(): void {
-    console.log('onDragDrop');
-  }
-  onDragMove(): void {
-    console.log('onDragMove');
-  }
-}
-
-function createDraggable(title: string): DraggableWidget {
-  var widget = new DraggableWidget(20);
-  widget.addClass('list-item');
-  widget.addClass('yellow');
-  return widget;
 }
 
 function createDroppable(): DroppableWidget {
-  var widget = new DroppableWidget();
+  let widget = new DroppableWidget();
   widget.addClass('content');
   widget.addClass('green');
   return widget;
 }
 
 function createList(): Widget {
-  var widget = new Widget();
+  let widget = new Widget();
   widget.addClass('content');
   widget.addClass('blue');
   return widget;
 }
 
 function populateList(list: Widget): void {
-  var t1 = createDraggable('table one');
-  var t2 = createDraggable('table two');
-  list.addChild(t1);
-  list.addChild(t2);
+  let plot = document.body.removeChild(document.getElementById(PLOT_ID));
+  let itemOne = new DraggableWidget('bokeh plot one', () => {
+    let widget = new Widget();
+    widget.node.appendChild(plot);
+    return widget;
+  });
+  itemOne.addClass('yellow');
+  let itemTwo = new DraggableWidget('random text widget', () => {
+    let widget = new Widget();
+    let text = 'This is just a random child with text in it.';
+    widget.node.appendChild(document.createTextNode(text));
+    return widget;
+  });
+  itemTwo.addClass('green');
+  let itemThree = new DraggableWidget('bad mime type', null);
+  itemThree.addClass('red');
+  list.addChild(itemOne);
+  list.addChild(itemTwo);
+  list.addChild(itemThree);
 }
 
-
 function main(): void {
-  var list = createList();
-  var droppable = createDroppable();
-  var panel = new SplitPanel();
+  let list = createList();
+  let droppable = createDroppable();
+  let panel = new SplitPanel();
   panel.orientation = SplitPanel.Horizontal;
   panel.children = [list, droppable];
   SplitPanel.setStretch(list, 1);
@@ -182,6 +229,5 @@ function main(): void {
   attachWidget(panel, document.body);
   window.onresize = () => panel.update();
 }
-
 
 window.onload = main;

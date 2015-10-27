@@ -19,9 +19,8 @@ body {
   bottom: 0;
 }
 
-.drag {
-  background: white;
-  position: absolute;
+.drag-over {
+  opacity: 0.7;
 }
 
 .content {
