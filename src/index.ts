@@ -43,40 +43,34 @@ import './index.css';
 
 
 /**
- * `p-SplitPanel`: the class name added to SplitPanel instances.
+ * The class name added to SplitPanel instances.
  */
-export
-const SPLIT_PANEL_CLASS = 'p-SplitPanel';
+var SPLIT_PANEL_CLASS = 'p-SplitPanel';
 
 /**
- * `p-SplitHandle`: the class name for a split handle.
+ * The class name added to SplitHandle instances.
  */
-export
-const SPLIT_HANDLE_CLASS = 'p-SplitHandle';
+var SPLIT_HANDLE_CLASS = 'p-SplitHandle';
 
 /**
- * `p-SplitHandle-overlay`: the class name for a split handle overlay.
+ * The class name added to a split handle overlay.
  */
-export
-const OVERLAY_CLASS = 'p-SplitHandle-overlay';
+var OVERLAY_CLASS = 'p-SplitHandle-overlay';
 
 /**
- * `p-mod-horizontal`: the class name added to horizontal panels and handles.
+ * The class name added to horizontal split panels and handles.
  */
-export
-const HORIZONTAL_CLASS = 'p-mod-horizontal';
+var HORIZONTAL_CLASS = 'p-mod-horizontal';
 
 /**
- * `p-mod-vertical`: the class name added to vertical panels and handles.
+ * The class name added to vertical split panels and handles.
  */
-export
-const VERTICAL_CLASS = 'p-mod-vertical';
+var VERTICAL_CLASS = 'p-mod-vertical';
 
 /**
- * `p-mod-hidden`: The class name added to hidden split handles.
+ * The class name added to hidden split handles.
  */
-export
-const HIDDEN_CLASS = 'p-mod-hidden';
+var HIDDEN_CLASS = 'p-mod-hidden';
 
 
 /**
@@ -125,14 +119,14 @@ class SplitPanel extends Widget {
   });
 
   /**
-   * The property descriptor for the split panel handle size.
+   * The property descriptor for the split panel spacing.
    *
-   * The controls the size of the split handles placed between the
-   * children of the panel, in pixels. The default value is `3`.
+   * The controls the fixed spacing between the child widgets, in
+   * pixels. The default value is `3`.
    *
-   * **See also:** [[handleSize]]
+   * **See also:** [[spacing]]
    */
-  static handleSizeProperty = new Property<SplitPanel, number>({
+  static spacingProperty = new Property<SplitPanel, number>({
     value: 3,
     coerce: (owner, value) => Math.max(0, value | 0),
     changed: owner => postMessage(owner, MSG_LAYOUT_REQUEST),
@@ -220,23 +214,23 @@ class SplitPanel extends Widget {
   }
 
   /**
-   * Get the size of the split handles.
+   * Get the inter-element spacing for the split panel.
    *
    * #### Notes
-   * This is a pure delegate to the [[handleSizeProperty]].
+   * This is a pure delegate to the [[spacingProperty]].
    */
-  get handleSize(): number {
-    return SplitPanel.handleSizeProperty.get(this);
+  get spacing(): number {
+    return SplitPanel.spacingProperty.get(this);
   }
 
   /**
-   * Set the the size of the split handles.
+   * Set the inter-element spacing for the split panel.
    *
    * #### Notes
-   * This is a pure delegate to the [[handleSizeProperty]].
+   * This is a pure delegate to the [[spacingProperty]].
    */
-  set handleSize(size: number) {
-    SplitPanel.handleSizeProperty.set(this, size);
+  set spacing(size: number) {
+    SplitPanel.spacingProperty.set(this, size);
   }
 
   /**
@@ -415,7 +409,7 @@ class SplitPanel extends Widget {
 
     // Hide the last visible handle and update the fixed space.
     if (lastVisibleHandle) lastVisibleHandle.hidden = true;
-    this._fixedSpace = this.handleSize * Math.max(0, visibleCount - 1);
+    this._fixedSpace = this.spacing * Math.max(0, visibleCount - 1);
 
     // Compute new size constraints for the split panel.
     var minW = 0;
@@ -517,7 +511,7 @@ class SplitPanel extends Widget {
     }
 
     // Distribute the layout space and layout the items.
-    var handleSize = this.handleSize;
+    var spacing = this.spacing;
     if (horizontal) {
       boxCalc(this._sizers, Math.max(0, width - this._fixedSpace));
       for (var i = 0, n = this.childCount; i < n; ++i) {
@@ -530,9 +524,9 @@ class SplitPanel extends Widget {
         widget.setOffsetGeometry(left, top, size, height);
         hStyle.top = top + 'px';
         hStyle.left = left + size + 'px';
-        hStyle.width = handleSize + 'px';
+        hStyle.width = spacing + 'px';
         hStyle.height = height + 'px';
-        left += size + handleSize;
+        left += size + spacing;
       }
     } else {
       boxCalc(this._sizers, Math.max(0, height - this._fixedSpace));
@@ -547,8 +541,8 @@ class SplitPanel extends Widget {
         hStyle.top = top + size + 'px';
         hStyle.left = left + 'px';
         hStyle.width = width + 'px';
-        hStyle.height = handleSize + 'px';
-        top += size + handleSize;
+        hStyle.height = spacing + 'px';
+        top += size + spacing;
       }
     }
   }
