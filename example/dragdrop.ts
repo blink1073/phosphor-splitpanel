@@ -23,37 +23,6 @@ import './dragdrop.css';
 
 const PLOT_ID = '1edbdc7a-876c-4549-bcf2-7726b8349a2e'
 
-const WIDGET_MIME_TYPE = 'application/x-phosphor-widget';
-
-interface IDragMimeData {
-  mime: string;
-  reference: string;
-}
-
-let { clearMimeData, getMimeData, getMimeFactory } =
-((cache: { [reference: string]: () => Widget }) => {
-  let id = 0;
-
-  function clearMimeData(reference: string): void {
-    delete cache[reference];
-  };
-
-  function getMimeData(factory: () => Widget): IDragMimeData {
-    if (!factory) {
-      return null;
-    }
-    let reference = 'reference-' + id++;
-    cache[reference] = factory;
-    return { mime: WIDGET_MIME_TYPE, reference: reference };
-  };
-
-  function getMimeFactory(reference: string): () => Widget {
-    return cache[reference] || null;
-  };
-
-  return { clearMimeData, getMimeData, getMimeFactory };
-})({ });
-
 class DraggableWidget extends Widget {
 
   static createNode(): HTMLElement {
@@ -94,19 +63,12 @@ class DraggableWidget extends Widget {
   }
 
   private _evtDragStart(event: DragEvent): void {
-    this._mimeData = getMimeData(this._factory);
-    if (this._mimeData) {
-      event.dataTransfer.setData(this._mimeData.mime, this._mimeData.reference);
-    }
+    Widget.setDragMimeData(event, this._factory);
   }
 
   private _evtDragEnd(event: DragEvent): void {
-    if (this._mimeData) {
-      clearMimeData(this._mimeData.reference);
-    }
+    Widget.clearDragMimeData();
   }
-
-  private _mimeData: IDragMimeData;
 }
 
 class DroppableWidget extends Widget {
@@ -143,8 +105,8 @@ class DroppableWidget extends Widget {
   }
 
   private _evtDragEnter(event: DragEvent): void {
-    let validMime = !!event.dataTransfer.getData(WIDGET_MIME_TYPE);
-    event.dataTransfer.dropEffect = validMime ? 'copy' : 'none';
+    let factory = Widget.getDragMimeData(event);
+    event.dataTransfer.dropEffect = factory ? 'copy' : 'none';
     event.preventDefault();
     event.stopPropagation();
     this.addClass('drag-over');
@@ -157,7 +119,8 @@ class DroppableWidget extends Widget {
   }
 
   private _evtDragOver(event: DragEvent): void {
-    if (!event.dataTransfer.getData(WIDGET_MIME_TYPE)) {
+    let factory = Widget.getDragMimeData(event);
+    if (!factory) {
       this.removeClass('drag-over');
       return;
     }
@@ -169,8 +132,7 @@ class DroppableWidget extends Widget {
     event.preventDefault();
     event.stopPropagation();
     this.removeClass('drag-over');
-    let reference = event.dataTransfer.getData(WIDGET_MIME_TYPE);
-    let factory = getMimeFactory(reference);
+    let factory = Widget.getDragMimeData(event);
     if (factory) {
       this.removeChildAt(0);
       this.addChild(factory());
