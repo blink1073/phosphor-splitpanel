@@ -245,17 +245,23 @@ describe('phosphor-splitpanel', () => {
 
     describe('#setSizes()', () => {
 
-      it('should set the relative sizes for the child widgets in the layout', () => {
+      it('should set the relative sizes for the child widgets in the layout', (done) => {
         let layout = new LogLayout(factory);
         let children = [new Widget(), new Widget()];
-        let parent = new Widget();
+        let parent = new LogWidget();
         layout.addChild(children[0]);
         layout.addChild(children[1]);
         parent.layout = layout;
         parent.attach(document.body);
         layout.setSizes([1, 4]);
         expect(layout.sizes()).to.eql([0.2, 0.8]);
-        parent.dispose();
+        parent.messages = [];
+        requestAnimationFrame(() => {
+          expect(parent.messages.indexOf('update-request')).to.not.be(-1);
+          parent.dispose();
+          done();
+        });
+
       });
 
     });
@@ -282,421 +288,424 @@ describe('phosphor-splitpanel', () => {
 
     });
 
+    describe('#moveHandle()', () => {
+
+      it('should move a split handle to the specified offset position', (done) => {
+        let layout = new SplitLayout(factory);
+        let widget0 = new LogWidget();
+        let widget1 = new LogWidget();
+        let parent = new LogWidget();
+        layout.addChild(widget0);
+        layout.addChild(widget1);
+        parent.layout = layout;
+        parent.attach(document.body);
+        requestAnimationFrame(() => {
+          let left = layout.handleAt(0).node.offsetLeft;
+          parent.messages = [];
+          layout.moveHandle(0, left - 100);
+          requestAnimationFrame(() => {
+            expect(layout.handleAt(0).node.offsetLeft).to.be(left - 100);
+            expect(parent.messages.indexOf('update-request')).to.not.be(-1);
+            parent.dispose();
+            done();
+          });
+        });
+      });
+
+      it('should be a no-op if there is no movement', (done) => {
+        let layout = new SplitLayout(factory);
+        let widget0 = new LogWidget();
+        let widget1 = new LogWidget();
+        let parent = new LogWidget();
+        layout.addChild(widget0);
+        layout.addChild(widget1);
+        parent.layout = layout;
+        parent.attach(document.body);
+        requestAnimationFrame(() => {
+          let handle = layout.handleAt(0);
+          let left = handle.node.offsetLeft;
+          parent.messages = [];
+          layout.moveHandle(0, left);
+          requestAnimationFrame(() => {
+            expect(handle.node.offsetLeft).to.be(left);
+            expect(parent.messages.indexOf('update-request')).to.be(-1);
+            parent.dispose();
+            done();
+          });
+        });
+      });
+
+      it('should be a no-op if invalid handle number', (done) => {
+        let layout = new SplitLayout(factory);
+        let widget0 = new LogWidget();
+        let widget1 = new LogWidget();
+        let parent = new LogWidget();
+        layout.addChild(widget0);
+        layout.addChild(widget1);
+        parent.layout = layout;
+        parent.attach(document.body);
+        requestAnimationFrame(() => {
+          let handle = layout.handleAt(0);
+          parent.messages = [];
+          layout.moveHandle(2, 100);
+          requestAnimationFrame(() => {
+            expect(parent.messages.indexOf('update-request')).to.be(-1);
+            parent.dispose();
+            done();
+          });
+        });
+      });
+
+      it('should be a no-op if handle is hidden', (done) => {
+        let layout = new SplitLayout(factory);
+        let widget0 = new LogWidget();
+        let widget1 = new LogWidget();
+        let parent = new LogWidget();
+        layout.addChild(widget0);
+        layout.addChild(widget1);
+        parent.layout = layout;
+        parent.attach(document.body);
+        requestAnimationFrame(() => {
+          let handle = layout.handleAt(0);
+          let left = handle.node.offsetLeft;
+          handle.hidden = true;
+          parent.messages = [];
+          layout.moveHandle(0, left - 100);
+          requestAnimationFrame(() => {
+            expect(handle.node.offsetLeft).to.be(left);
+            expect(parent.messages.indexOf('update-request')).to.be(-1);
+            parent.dispose();
+            done();
+          });
+        });
+      });
+
+    });
+
+    describe('#initialize()', () => {
+
+      it('should set the orientation class on the parent', () => {
+        let layout = new LogLayout(factory);
+        let parent = new LogWidget();
+        parent.layout = layout;
+        expect(layout.methods.indexOf('initialize')).to.not.be(-1);
+        expect(parent.hasClass('p-mod-horizontal')).to.be(true);
+      });
+
+    });
+
+    describe('#attachChild', () => {
+
+      it("should attach a child widget to the parent's DOM node", (done) => {
+        let layout = new LogLayout(factory);
+        let widget0 = new LogWidget();
+        let widget1 = new LogWidget();
+        let parent = new LogWidget();
+        layout.addChild(widget0);
+        layout.addChild(widget1);
+        parent.layout = layout;
+        parent.attach(document.body);
+        requestAnimationFrame(() => {
+          expect(layout.methods.indexOf('attachChild')).to.not.be(-1);
+          expect(parent.node.contains(widget0.node)).to.be(true);
+          expect(parent.node.contains(widget1.node)).to.be(true);
+          parent.dispose();
+          done();
+        });
+
+      });
+
+      it('should send `after-attach` to the children', (done) => {
+        let layout = new LogLayout(factory);
+        let widget0 = new LogWidget();
+        let widget1 = new LogWidget();
+        let parent = new LogWidget();
+        layout.addChild(widget0);
+        layout.addChild(widget1);
+        parent.layout = layout;
+        parent.attach(document.body);
+        requestAnimationFrame(() => {
+          expect(layout.methods.indexOf('attachChild')).to.not.be(-1);
+          expect(widget0.messages.indexOf('after-attach')).to.not.be(-1);
+          expect(widget1.messages.indexOf('after-attach')).to.not.be(-1);
+          parent.dispose();
+          done();
+        });
+
+      });
+
+      it('should call fit on the parent', (done) => {
+        let layout = new LogLayout(factory);
+        let widget0 = new LogWidget();
+        let widget1 = new LogWidget();
+        let parent = new LogWidget();
+        layout.addChild(widget0);
+        layout.addChild(widget1);
+        parent.layout = layout;
+        parent.attach(document.body);
+        requestAnimationFrame(() => {
+          expect(layout.methods.indexOf('attachChild')).to.not.be(-1);
+          parent.messages = [];
+          requestAnimationFrame(() => {
+            expect(layout.messages.indexOf('fit-request')).to.not.be(-1);
+            parent.dispose();
+            done();
+          });
+        });
+      });
+
+    });
+
+    describe('#moveChild()', () => {
+
+      it('should be called when a child is moved', () => {
+        let widget = new Widget();
+        let children = [new Widget(), new Widget()];
+        let layout = new LogLayout(factory);
+        widget.layout = layout;
+        layout.addChild(children[0]);
+        layout.addChild(children[1]);
+        layout.insertChild(0, children[1]);
+        expect(layout.methods.indexOf('moveChild')).to.not.be(-1);
+      });
+
+      it("should send a fit request to the parent", (done) => {
+        let widget = new LogWidget();
+        let children = [new LogWidget(), new LogWidget()];
+        let layout = new LogLayout(factory);
+        layout.addChild(children[0]);
+        layout.addChild(children[1]);
+        widget.layout = layout;
+        children[1].messages = [];
+        widget.attach(document.body);
+        layout.insertChild(0, children[1]);
+        expect(layout.methods.indexOf('moveChild')).to.not.be(-1);
+        requestAnimationFrame(() => {
+          expect(widget.messages.indexOf('fit-request')).to.not.be(-1);
+          widget.dispose();
+          done();
+        });
+      });
+
+    });
+
+    describe('#detachChild()', () => {
+
+      it('should be called when a child is detached', () => {
+        let widget = new Widget();
+        let children = [new Widget(), new Widget()];
+        let layout = new LogLayout(factory);
+        layout.addChild(children[0]);
+        layout.addChild(children[1]);
+        widget.layout = layout;
+        widget.attach(document.body);
+        children[1].parent = null;
+        expect(layout.methods.indexOf('detachChild')).to.not.be(-1);
+        widget.dispose();
+      });
+
+      it("should send a `'before-detach'` message if appropriate", () => {
+        let widget = new Widget();
+        let children = [new LogWidget(), new LogWidget()];
+        let layout = new LogLayout(factory);
+        layout.addChild(children[0]);
+        layout.addChild(children[1]);
+        widget.layout = layout;
+        widget.attach(document.body);
+        children[1].parent = null;
+        expect(layout.methods.indexOf('detachChild')).to.not.be(-1);
+        expect(children[1].messages.indexOf('before-detach')).to.not.be(-1);
+        layout.dispose();
+      });
+
+      it('should send a fit request to the parent', (done) => {
+        let widget = new LogWidget();
+        let children = [new LogWidget(), new LogWidget()];
+        let layout = new LogLayout(factory);
+        layout.addChild(children[0]);
+        layout.addChild(children[1]);
+        widget.layout = layout;
+        widget.attach(document.body);
+        children[1].parent = null;
+        expect(layout.methods.indexOf('detachChild')).to.not.be(-1);
+        layout.messages = [];
+        requestAnimationFrame(() => {
+          expect(layout.messages.indexOf('fit-request')).to.not.be(-1);
+          widget.dispose();
+          done();
+        });
+      });
+
+    });
+
+    describe('#onAfterShow()', () => {
+
+      it('should call update on the parent', (done) => {
+        let widget = new LogWidget();
+        let layout = new LogLayout(factory);
+        widget.layout = layout;
+        widget.attach(document.body);
+        widget.hide();
+        widget.show();
+        expect(layout.methods.indexOf('onAfterShow')).to.not.be(-1);
+        requestAnimationFrame(() => {
+          expect(widget.messages.indexOf('update-request')).to.not.be(-1);
+          widget.dispose();
+          done();
+        });
+      });
+
+    });
+
+    describe('#onAfterAttach()', () => {
+
+      it('should call fit on the parent', (done) => {
+        let widget = new LogWidget();
+        let layout = new LogLayout(factory);
+        widget.layout = layout;
+        widget.attach(document.body);
+        expect(layout.methods.indexOf('onAfterAttach')).to.not.be(-1);
+        requestAnimationFrame(() => {
+          expect(widget.messages.indexOf('fit-request')).to.not.be(-1);
+          widget.dispose();
+          done();
+        });
+      });
+
+    });
+
+    describe('#onChildShown()', () => {
+
+      it('should post or send fit message to the parent', (done) => {
+        let widget = new LogWidget();
+        let layout = new LogLayout(factory);
+        widget.layout = layout;
+        layout.addChild(new Widget());
+        layout.addChild(new Widget());
+        widget.attach(document.body);
+        layout.childAt(0).hide();
+        layout.childAt(0).show();
+        expect(layout.methods.indexOf('onChildShown')).to.not.be(-1);
+        requestAnimationFrame(() => {
+          expect(widget.messages.indexOf('fit-request')).to.not.be(-1);
+          widget.dispose();
+          done();
+        });
+      });
+
+    });
+
+    describe('#onChildHidden()', () => {
+
+      it('should post or send fit message to the parent', (done) => {
+        let widget = new LogWidget();
+        let layout = new LogLayout(factory);
+        widget.layout = layout;
+        layout.addChild(new Widget());
+        layout.addChild(new Widget());
+        widget.attach(document.body);
+        layout.childAt(0).hide();
+        expect(layout.methods.indexOf('onChildHidden')).to.not.be(-1);
+        requestAnimationFrame(() => {
+          expect(widget.messages.indexOf('fit-request')).to.not.be(-1);
+          widget.dispose();
+          done();
+        });
+      });
+
+    });
+
+    describe('#onResize()', () => {
+
+      it('should lay out the children', () => {
+        let widget = new LogWidget();
+        let children = [new Widget(), new Widget()];
+        widget.node.style.width = '50px';
+        widget.node.style.height = '50px';
+        let layout = new LogLayout(factory);
+        widget.layout = layout;
+        widget.attach(document.body);
+        layout.addChild(children[0]);
+        layout.addChild(children[1]);
+        expect(children[0].node.style.width).to.be('');
+        expect(children[1].node.style.width).to.be('');
+        sendMessage(widget, ResizeMessage.UnknownSize);
+        expect(layout.methods.indexOf('onResize')).to.not.be(-1);
+        expect(layout.childAt(0).node.style.width).to.be('25px');
+        expect(layout.childAt(1).node.style.width).to.be('25px');
+        widget.dispose();
+      });
+
+    });
+
+    describe('#onUpdateRequest()', () => {
+
+      it('should lay out the children', () => {
+        let widget = new LogWidget();
+        let children = [new Widget(), new Widget()];
+        widget.node.style.width = '50px';
+        widget.node.style.height = '50px';
+        let layout = new LogLayout(factory);
+        widget.layout = layout;
+        widget.attach(document.body);
+        layout.addChild(children[0]);
+        layout.addChild(children[1]);
+        expect(children[0].node.style.width).to.be('');
+        expect(children[1].node.style.width).to.be('');
+        sendMessage(widget, Widget.MsgUpdateRequest);
+        expect(layout.methods.indexOf('onUpdateRequest')).to.not.be(-1);
+        expect(layout.childAt(0).node.style.width).to.be('25px');
+        expect(layout.childAt(1).node.style.width).to.be('25px');
+        widget.dispose();
+      });
+
+    });
+
+    describe('#onFitRequest()', () => {
+
+      it('should fit to the size required by the children', (done) => {
+        let widget = new LogWidget();
+        let children = [new Widget(), new Widget()];
+        let layout = new LogLayout(factory);
+        widget.layout = layout;
+        widget.attach(document.body);
+        layout.addChild(children[0]);
+        layout.addChild(children[1]);
+        children[0].node.style.minWidth = '100px';
+        children[1].node.style.minWidth = '100px';
+        expect(widget.node.style.minHeight).to.be('');
+        widget.fit();
+        requestAnimationFrame(() => {
+          expect(layout.methods.indexOf('onFitRequest')).to.not.be(-1);
+          expect(widget.node.style.minWidth).to.be('203px');
+          widget.dispose();
+          done();
+        });
+      });
+
+      it('should handle `Vertical`', (done) => {
+        let widget = new LogWidget();
+        let children = [new Widget(), new Widget()];
+        let layout = new LogLayout(factory);
+        layout.orientation = LogLayout.Vertical;
+        widget.layout = layout;
+        widget.attach(document.body);
+        layout.addChild(children[0]);
+        layout.addChild(children[1]);
+        children[0].node.style.minHeight = '100px';
+        children[1].node.style.minHeight = '100px';
+        expect(widget.node.style.minHeight).to.be('');
+        widget.fit();
+        requestAnimationFrame(() => {
+          expect(layout.methods.indexOf('onFitRequest')).to.not.be(-1);
+          expect(widget.node.style.minHeight).to.be('203px');
+          widget.dispose();
+          done();
+        });
+      });
+
+    });
+
   });
-
-  // describe('SplitPanel', () => {
-
-
-
-  //   describe('.orientationProperty', () => {
-
-  //     it('should be a property descriptor', () => {
-  //       expect(SplitPanel.orientationProperty instanceof Property).to.be(true);
-  //     });
-
-  //     it('should have the name `orientation`', () => {
-  //       expect(SplitPanel.orientationProperty.name).to.be('orientation');
-  //     });
-
-  //     it('should default to `Horizontal`', () => {
-  //       let panel = new SplitPanel();
-  //       let orientation = SplitPanel.orientationProperty.get(panel);
-  //       expect(orientation).to.be(Orientation.Horizontal);
-  //     });
-
-  //     it('should toggle the orientation classes', () => {
-  //       let panel = new SplitPanel();
-  //       expect(panel.hasClass('p-mod-horizontal')).to.be(true);
-  //       expect(panel.hasClass('p-mod-vertical')).to.be(false);
-  //       SplitPanel.orientationProperty.set(panel, Orientation.Vertical);
-  //       expect(panel.hasClass('p-mod-horizontal')).to.be(false);
-  //       expect(panel.hasClass('p-mod-vertical')).to.be(true);
-  //     });
-
-  //     it('should post a `layout-request`', (done) => {
-  //       let panel = new LogPanel();
-  //       SplitPanel.orientationProperty.set(panel, Orientation.Vertical);
-  //       expect(panel.messages.indexOf('layout-request')).to.be(-1);
-  //       requestAnimationFrame(() => {
-  //         expect(panel.messages.indexOf('layout-request')).to.not.be(-1);
-  //         done();
-  //       });
-  //     });
-
-  //   });
-
-  //   describe('.spacingProperty', () => {
-
-  //     it('should be a property descriptor', () => {
-  //       expect(SplitPanel.spacingProperty instanceof Property).to.be(true);
-  //     });
-
-  //     it('should have the name `spacing`', () => {
-  //       expect(SplitPanel.spacingProperty.name).to.be('spacing');
-  //     });
-
-  //     it('should default to `3`', () => {
-  //       let panel = new SplitPanel();
-  //       expect(SplitPanel.spacingProperty.get(panel)).to.be(3);
-  //     });
-
-  //     it('should post a `layout-request`', (done) => {
-  //       let panel = new LogPanel();
-  //       SplitPanel.spacingProperty.set(panel, 4);
-  //       expect(panel.messages.indexOf('layout-request')).to.be(-1);
-  //       requestAnimationFrame(() => {
-  //         expect(panel.messages.indexOf('layout-request')).to.not.be(-1);
-  //         done();
-  //       });
-  //     });
-
-  //   });
-
-  //   describe('.stretchProperty', () => {
-
-  //     it('should be a property descriptor', () => {
-  //       expect(SplitPanel.stretchProperty instanceof Property).to.be(true);
-  //     });
-
-  //     it('should have the name `stretch`', () => {
-  //       expect(SplitPanel.stretchProperty.name).to.be('stretch');
-  //     });
-
-  //     it('should default to `0`', () => {
-  //       let widget = new Widget();
-  //       expect(SplitPanel.stretchProperty.get(widget)).to.be(0);
-  //     });
-
-  //     it('should post a `layout-request`', (done) => {
-  //       let panel = new LogPanel();
-  //       let widget = new Widget();
-  //       panel.addChild(widget);
-  //       clearMessageData(panel);
-  //       SplitPanel.stretchProperty.set(widget, 4);
-  //       expect(panel.messages.indexOf('layout-request')).to.be(-1);
-  //       requestAnimationFrame(() => {
-  //         expect(panel.messages.indexOf('layout-request')).to.not.be(-1);
-  //         done();
-  //       });
-  //     });
-
-  //   });
-
-
-
-
-
-
-
-
-
-
-
-
-  //   describe('#onChildAdded()', () => {
-
-  //     it('should be invoked when a child is added', () => {
-  //       let panel = new LogPanel();
-  //       let widget = new LogWidget();
-  //       panel.attach(document.body);
-  //       panel.addChild(widget);
-  //       expect(panel.messages.indexOf('child-added')).to.not.be(-1);
-  //       panel.dispose();
-  //     });
-
-  //     it('should send `after-attach` to the child', () => {
-  //       let panel = new LogPanel();
-  //       let widget = new LogWidget();
-  //       panel.attach(document.body);
-  //       panel.addChild(widget);
-  //       expect(widget.messages.indexOf('after-attach')).to.not.be(-1);
-  //       panel.dispose();
-  //     });
-
-  //     it('should post a `layout-request`', (done) => {
-  //       let panel = new LogPanel();
-  //       let widget = new LogWidget();
-  //       panel.attach(document.body);
-  //       expect(panel.messages.indexOf('layout-request')).to.be(-1);
-  //       panel.addChild(widget);
-  //       requestAnimationFrame(() => {
-  //         expect(panel.messages.indexOf('layout-request')).to.not.be(-1);
-  //         panel.dispose();
-  //         done();
-  //       });
-  //     });
-
-  //   });
-
-  //   describe('#onChildRemoved()', () => {
-
-  //     it('should be invoked when a child is removed', () => {
-  //       let panel = new LogPanel();
-  //       let widget = new Widget();
-  //       panel.attach(document.body);
-  //       panel.addChild(widget);
-  //       expect(panel.messages.indexOf('child-removed')).to.be(-1);
-  //       widget.remove();
-  //       expect(panel.messages.indexOf('child-removed')).to.not.be(-1);
-  //       panel.dispose();
-  //     });
-
-  //     it('should send `before-detach` to the child', () => {
-  //       let panel = new LogPanel();
-  //       let widget = new LogWidget();
-  //       panel.attach(document.body);
-  //       panel.addChild(widget);
-  //       expect(widget.messages.indexOf('before-detach')).to.be(-1);
-  //       widget.remove();
-  //       expect(widget.messages.indexOf('before-detach')).to.not.be(-1);
-  //       panel.dispose();
-  //     });
-
-  //     it('should be post a `layout-request`', (done) => {
-  //       let panel = new LogPanel();
-  //       let widget = new Widget();
-  //       panel.attach(document.body);
-  //       panel.addChild(widget);
-  //       clearMessageData(panel);
-  //       panel.messages = [];
-  //       widget.remove();
-  //       requestAnimationFrame(() => {
-  //         expect(panel.messages.indexOf('layout-request')).to.not.be(-1);
-  //         panel.dispose();
-  //         done();
-  //       });
-  //     });
-
-  //   });
-
-  //   describe('#onChildMoved()', () => {
-
-  //     it('should be invoked when a child is moved', () => {
-  //       let panel = new LogPanel();
-  //       let widget0 = new Widget();
-  //       let widget1 = new Widget();
-  //       panel.addChild(widget0);
-  //       panel.addChild(widget1);
-  //       panel.attach(document.body);
-  //       panel.messages = [];
-  //       panel.addChild(widget0);
-  //       expect(panel.messages.indexOf('child-moved')).to.not.be(-1);
-  //       panel.dispose();
-  //     });
-
-  //     it('should reorder the sizes appropriately', () => {
-  //       let panel = new LogPanel();
-  //       let widget0 = new Widget();
-  //       let widget1 = new Widget();
-  //       panel.addChild(widget0);
-  //       panel.addChild(widget1);
-  //       panel.setSizes([0.3, 0.7]);
-  //       panel.attach(document.body);
-  //       panel.messages = [];
-  //       panel.addChild(widget0);
-  //       expect(panel.sizes()).to.eql([0.7, 0.3]);
-  //       panel.dispose();
-  //     });
-
-  //     it('should post a `layout-request`', (done) => {
-  //       let panel = new LogPanel();
-  //       let widget0 = new Widget();
-  //       let widget1 = new Widget();
-  //       panel.addChild(widget0);
-  //       panel.addChild(widget1);
-  //       panel.attach(document.body);
-  //       clearMessageData(panel);
-  //       panel.messages = [];
-  //       panel.addChild(widget0);
-  //       requestAnimationFrame(() => {
-  //         expect(panel.messages.indexOf('layout-request')).to.not.be(-1);
-  //         panel.dispose();
-  //         done();
-  //       });
-  //     });
-
-  //   });
-
-  //   describe('#onAfterShow()', () => {
-
-  //     it('should send an `update-request`', () => {
-  //       let panel = new LogPanel();
-  //       panel.attach(document.body);
-  //       panel.hidden = true;
-  //       panel.messages = [];
-  //       panel.hidden = false;
-  //       expect(panel.messages.indexOf('update-request')).to.not.be(-1);
-  //       panel.dispose();
-  //     });
-
-  //   });
-
-
-
-  //   describe('#onChildShown()', () => {
-
-  //     it('should post a `layout-request`', (done) => {
-  //       let panel = new LogPanel();
-  //       let widget = new Widget();
-  //       widget.hidden = true;
-  //       panel.addChild(widget);
-  //       panel.attach(document.body);
-  //       clearMessageData(panel);
-  //       panel.messages = [];
-  //       widget.hidden = false;
-  //       requestAnimationFrame(() => {
-  //         expect(panel.messages.indexOf('layout-request')).to.not.be(-1);
-  //         panel.dispose();
-  //         done();
-  //       });
-  //     });
-
-  //   });
-
-  //   describe('#onChildHidden()', () => {
-
-  //     it('should post a `layout-request`', (done) => {
-  //       let panel = new LogPanel();
-  //       let widget = new Widget();
-  //       panel.addChild(widget);
-  //       panel.attach(document.body);
-  //       clearMessageData(panel);
-  //       panel.messages = [];
-  //       widget.hidden = true;
-  //       requestAnimationFrame(() => {
-  //         expect(panel.messages.indexOf('layout-request')).to.not.be(-1);
-  //         panel.dispose();
-  //         done();
-  //       });
-  //     });
-
-  //   });
-
-  //   describe('#onResize()', () => {
-
-  //     it('should be invoked on `resize` message', () => {
-  //       let panel = new LogPanel();
-  //       let message = new ResizeMessage(100, 100);
-  //       panel.attach(document.body);
-  //       sendMessage(panel, message);
-  //       expect(panel.messages.indexOf('resize')).to.not.be(-1);
-  //       panel.dispose();
-  //     });
-
-  //     it('should handle an unknown size', () => {
-  //       let panel = new LogPanel();
-  //       panel.attach(document.body);
-  //       sendMessage(panel, ResizeMessage.UnknownSize);
-  //       expect(panel.messages.indexOf('resize')).to.not.be(-1);
-  //       panel.dispose();
-  //     });
-
-  //     it('should resize the children', () => {
-  //       let panel = new SplitPanel();
-  //       let child0 = new Widget();
-  //       let child1 = new Widget();
-  //       panel.orientation = Orientation.Vertical;
-  //       panel.addChild(child0);
-  //       panel.addChild(child1);
-  //       panel.attach(document.body);
-  //       panel.node.style.position = 'absolute';
-  //       panel.node.style.top = '0px';
-  //       panel.node.style.left = '0px';
-  //       panel.node.style.width = '0px';
-  //       panel.node.style.height = '0px';
-  //       sendMessage(panel, Widget.MsgLayoutRequest);
-  //       panel.node.style.width = '101px';
-  //       panel.node.style.height = '101px';
-  //       sendMessage(panel, new ResizeMessage(101, 101));
-  //       expect(child0.node.offsetTop).to.be(0);
-  //       expect(child0.node.offsetLeft).to.be(0);
-  //       expect(child0.node.offsetWidth).to.be(101);
-  //       expect(child0.node.offsetHeight).to.be(49);
-  //       expect(child1.node.offsetTop).to.be(52);
-  //       expect(child1.node.offsetLeft).to.be(0);
-  //       expect(child1.node.offsetWidth).to.be(101);
-  //       expect(child1.node.offsetHeight).to.be(49);
-  //       panel.dispose();
-  //     });
-
-  //   });
-
-  //   describe('#onUpdate()', () => {
-
-  //     it('should be invoked on an `update-request` message', () => {
-  //       let panel = new LogPanel();
-  //       sendMessage(panel, Widget.MsgUpdateRequest);
-  //       expect(panel.messages.indexOf('update-request')).to.not.be(-1);
-  //     });
-
-  //     it('should resize the children', () => {
-  //       let panel = new SplitPanel();
-  //       let child0 = new Widget();
-  //       let child1 = new Widget();
-  //       panel.orientation = Orientation.Vertical;
-  //       panel.addChild(child0);
-  //       panel.addChild(child1);
-  //       panel.attach(document.body);
-  //       panel.node.style.position = 'absolute';
-  //       panel.node.style.top = '0px';
-  //       panel.node.style.left = '0px';
-  //       panel.node.style.width = '0px';
-  //       panel.node.style.height = '0px';
-  //       sendMessage(panel, Widget.MsgLayoutRequest);
-  //       panel.node.style.width = '201px';
-  //       panel.node.style.height = '201px';
-  //       sendMessage(panel, Widget.MsgUpdateRequest);
-  //       expect(child0.node.offsetTop).to.be(0);
-  //       expect(child0.node.offsetLeft).to.be(0);
-  //       expect(child0.node.offsetWidth).to.be(201);
-  //       expect(child0.node.offsetHeight).to.be(99);
-  //       expect(child1.node.offsetTop).to.be(102);
-  //       expect(child1.node.offsetLeft).to.be(0);
-  //       expect(child1.node.offsetWidth).to.be(201);
-  //       expect(child1.node.offsetHeight).to.be(99);
-  //       panel.dispose();
-  //     });
-
-  //   });
-
-  //   describe('#onLayoutRequest()', () => {
-
-  //     it('should be invoked on a `layout-request` message', () => {
-  //       let panel = new LogPanel();
-  //       sendMessage(panel, Widget.MsgLayoutRequest);
-  //       expect(panel.messages.indexOf('layout-request')).to.not.be(-1);
-  //     });
-
-  //     it('should send a `layout-request` to its parent', () => {
-  //       let panel1 = new LogPanel();
-  //       let panel2 = new LogPanel();
-  //       panel1.addChild(panel2);
-  //       panel1.attach(document.body);
-  //       clearMessageData(panel1);
-  //       clearMessageData(panel2);
-  //       expect(panel1.messages.indexOf('layout-request')).to.be(-1);
-  //       sendMessage(panel2, Widget.MsgLayoutRequest);
-  //       expect(panel1.messages.indexOf('layout-request')).to.not.be(-1);
-  //       panel1.dispose();
-  //     });
-
-  //     it('should setup the geometry of the panel', () => {
-  //       let panel = new SplitPanel();
-  //       let child = new Widget();
-  //       child.node.style.minWidth = '50px';
-  //       child.node.style.minHeight = '50px';
-  //       panel.addChild(child);
-  //       panel.attach(document.body);
-  //       expect(panel.node.style.minWidth).to.be('');
-  //       expect(panel.node.style.minHeight).to.be('');
-  //       sendMessage(panel, Widget.MsgLayoutRequest);
-  //       expect(panel.node.style.minWidth).to.be('50px');
-  //       expect(panel.node.style.minHeight).to.be('50px');
-  //       panel.dispose();
-  //     });
-
-  //   });
-
-
 
 });
